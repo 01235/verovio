@@ -23382,16 +23382,50 @@ void HumdrumInput::prepareBeamAndTupletGroups(
         durbeamnum.push_back(beamnum[i]);
     }
 
-    // poweroftwo == keeps track whether durations are based on a power
-    // (non-tuplet) or not (tuplet).  Notes/rests with false poweroftwo
-    // will be grouped into tuplets.
+    // beamlevels == the number of beams each duration item's beam letters give
+    // it: the beams open across it (L opens one, J closes one) plus its own
+    // partial beams (k on the left, K on the right), on the fuller side.
+    // Grace notes carry beams of their own and are not duration items.
+    std::vector<int> beamlevels(duritems.size(), 0);
+    int openbeams = 0;
+    for (int i = 0; i < (int)duritems.size(); ++i) {
+        int before = openbeams;
+        int after = openbeams - characterCount(duritems[i], 'J') + characterCount(duritems[i], 'L');
+        int left = before + characterCount(duritems[i], 'k');
+        int right = after + characterCount(duritems[i], 'K');
+        beamlevels[i] = std::max(left, right);
+        openbeams = std::max(after, 0);
+    }
+
+    // writtendur == the written duration (without dots, in whole notes) a beamed
+    // item's letters give it, zero for an item without a beam.  The letters count
+    // the beams of the written duration, so they say what the duration alone
+    // cannot: whether 16 is a sixteenth or an eighth in a 2:1 tuplet, whether
+    // 24 is a triplet sixteenth or a thirty-second in 3:4.  Beyond eight beams
+    // the letters are not taken as a duration.
+    std::vector<hum::HumNum> writtendur(duritems.size(), 0);
+    for (int i = 0; i < (int)duritems.size(); ++i) {
+        if ((beamlevels[i] > 0) && (beamlevels[i] <= 8)) {
+            writtendur[i] = hum::HumNum(1, 4 << beamlevels[i]);
+        }
+    }
+
+    // poweroftwo == keeps track whether an item is written as its own duration
+    // (non-tuplet) or not (tuplet): a power of two for an item without a beam,
+    // the duration its letters say for a beamed one.  Notes/rests with false
+    // poweroftwo will be grouped into tuplets.
     std::vector<bool> poweroftwo(duritems.size());
     bool hastupletQ = false;
     std::vector<hum::HumNum> dotlessdur(duritems.size());
     for (int i = 0; i < (int)duritems.size(); ++i) {
         hum::HumNum duration = hum::Convert::recipToDurationNoDots(*duritems[i]);
         dotlessdur[i] = duration / 4;
-        poweroftwo[i] = duration.isPowerOfTwo();
+        if (writtendur[i] > 0) {
+            poweroftwo[i] = (dotlessdur[i] == writtendur[i]);
+        }
+        else {
+            poweroftwo[i] = duration.isPowerOfTwo();
+        }
         hastupletQ |= !poweroftwo[i];
     }
 
@@ -23718,6 +23752,13 @@ void HumdrumInput::prepareBeamAndTupletGroups(
         if (!tupletgroups.at(i)) {
             continue;
         }
+        if (writtendur[i] > 0) {
+            // The letters name the written duration, so the ratio follows from it.
+            hum::HumNum value = dotlessdur[i] / writtendur[i];
+            tuptop[i] = value.getDenominator();
+            tupbot[i] = value.getNumerator();
+            continue;
+        }
         hum::HumNum nextpowoftwo;
         if (dotlessdur[i] < 1) {
             nextpowoftwo = nextHigherPowerOfTwo(dotlessdur[i]);
@@ -23740,6 +23781,39 @@ void HumdrumInput::prepareBeamAndTupletGroups(
         // Reference tuplet breve do breve rather than whole.
         if ((dotlessdur[i].getNumerator() == 4) && (dotlessdur[i].getDenominator() == 3)) {
             tupbot[i] = 2;
+        }
+    }
+
+    // An item without a beam in a group with beamed ones takes the ratio of
+    // the nearest beamed item whose ratio writes it as a power of two (the rest
+    // that opens a group of beamed sixteenths, the quarter that closes one), so
+    // that the group holds together under the ratio the letters say.
+    for (int i = 0; i < (int)tupletgroups.size(); ++i) {
+        if (!tupletgroups.at(i) || (writtendur[i] > 0)) {
+            continue;
+        }
+        bool adopted = false;
+        for (int distance = 1; !adopted; ++distance) {
+            bool inside = false;
+            for (int j : { i - distance, i + distance }) {
+                if ((j < 0) || (j >= (int)tupletgroups.size()) || (tupletgroups.at(j) != tupletgroups.at(i))) {
+                    continue;
+                }
+                inside = true;
+                if (writtendur[j] == 0) {
+                    continue;
+                }
+                hum::HumNum written = dotlessdur[i] * tuptop[j] / tupbot[j];
+                if (written.isPowerOfTwo()) {
+                    tuptop[i] = tuptop[j];
+                    tupbot[i] = tupbot[j];
+                    adopted = true;
+                    break;
+                }
+            }
+            if (!inside) {
+                break;
+            }
         }
     }
 
