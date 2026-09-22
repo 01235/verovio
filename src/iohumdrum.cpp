@@ -12875,48 +12875,6 @@ bool HumdrumInput::convertStaffLayer(int track, int startline, int endline, int 
 
 //////////////////////////////
 //
-// HumdrumInput::fixLargeTuplets -- fix triple-breve/triplet-wholenote cases.
-//
-
-void HumdrumInput::fixLargeTuplets(std::vector<humaux::HumdrumBeamAndTuplet> &tg)
-{
-    // triplet-whole + triplet-breve cases
-    for (int i = 1; i < (int)tg.size(); ++i) {
-        if ((tg.at(i).tupletstart == 2) && (tg.at(i).tupletend == 1) && (tg.at(i - 1).tupletstart == 1)
-            && (tg.at(i - 1).tupletend == 1)) {
-            tg.at(i).tupletstart = 0;
-            tg.at(i - 1).tupletend = 0;
-        }
-    }
-
-    // two triplet-halfs + triplet-breve case
-    for (int i = 2; i < (int)tg.size(); ++i) {
-        if ((tg.at(i).tupletstart == 2) && (tg.at(i).tupletend == 1) && (tg.at(i - 1).tupletstart == 0)
-            && (tg.at(i - 1).tupletend == 1) && (tg.at(i - 2).tupletstart == 1) && (tg.at(i - 2).tupletend == 0)) {
-            tg.at(i - 1).numscale = 1;
-            tg.at(i - 2).numscale = 1;
-            tg.at(i).tupletstart = 0;
-            tg.at(i - 1).tupletend = 0;
-            tg.at(i).numbase = 2;
-        }
-    }
-
-    // two triplet-halfs + triplet-breve case + two triplet-halfs
-    for (int i = 2; i < (int)tg.size(); ++i) {
-        if ((tg.at(i).tupletstart == 0) && (tg.at(i).tupletend == 2) && (tg.at(i - 1).tupletstart == 2)
-            && (tg.at(i - 1).tupletend == 0) && (tg.at(i - 2).tupletstart == 1) && (tg.at(i - 2).tupletend == 1)) {
-            tg.at(i).tupletend = 1;
-            tg.at(i - 1).tupletstart = 0;
-            tg.at(i - 2).tupletend = 0;
-            tg.at(i - 2).numbase = 2;
-            tg.at(i).numscale = 1;
-            tg.at(i - 1).numscale = 1;
-        }
-    }
-}
-
-//////////////////////////////
-//
 // HumdrumInput::printGroupInfo --
 //
 
@@ -14069,7 +14027,6 @@ bool HumdrumInput::fillContentsOfLayer(int track, int startline, int endline, in
 
     std::vector<humaux::HumdrumBeamAndTuplet> tgs;
     prepareBeamAndTupletGroups(tgs, layerdata);
-    fixLargeTuplets(tgs);
 
     if (m_debug) {
         printGroupInfo(tgs);
@@ -23735,30 +23692,29 @@ void HumdrumInput::prepareBeamAndTupletGroups(
         }
     }
 
-    // adjust tupletgroups based on tuptop and tupbot changes
-    int correction = 0;
+    // A tuplet element scales every note in it by the ratio of the note that
+    // opens it (see insertTuplet), so a group must hold a single ratio: split
+    // it wherever the ratio changes between adjacent notes.  The groups are
+    // compared as assigned above and renumbered afterwards, so every change
+    // inside a group splits it, not only the first one.
     for (int i = 1; i < (int)tuptop.size(); ++i) {
-        if ((tuptop[i] == 1) && (tupbot[i] == 1)) {
+        if (!tupletgroups.at(i) || (tupletgroups.at(i) != tupletgroups.at(i - 1))) {
             continue;
         }
-        if ((tuptop[i] == -1) && (tupbot[i] == -1)) {
-            continue;
-        }
-        if ((tuptop[i - 1] == 1) && (tupbot[i - 1] == 1)) {
-            continue;
-        }
-        if ((tuptop[i - 1] == -1) && (tupbot[i - 1] == -1)) {
-            continue;
-        }
-
         if ((tuptop[i] != tuptop[i - 1]) || (tupbot[i] != tupbot[i - 1])) {
-            if (tupletgroups.at(i) == tupletgroups.at(i - 1)) {
-                correction++;
-                tupletstartboolean[i] = true;
-                tupletendboolean[i - 1] = true;
-            }
+            tupletstartboolean[i] = tupletgroups.at(i);
+            tupletendboolean[i - 1] = tupletgroups.at(i - 1);
         }
-        tupletgroups.at(i) += correction;
+    }
+    int groupcounter = 0;
+    for (int i = 0; i < (int)tupletgroups.size(); ++i) {
+        if (!tupletgroups.at(i)) {
+            continue;
+        }
+        if (tupletstartboolean.at(i)) {
+            groupcounter++;
+        }
+        tupletgroups.at(i) = groupcounter;
     }
 
     for (int i = 0; i < (int)tuptop.size(); ++i) {
@@ -23822,13 +23778,14 @@ void HumdrumInput::prepareBeamAndTupletGroups(
     }
 
     // Renumber tuplet groups in sequence (otherwise the mergeTupletsCuttingBeam()
-    // function will delete the 1st group if it is not the first tuplet.
+    // function will delete the 1st group if it is not the first tuplet.  A
+    // one-note group starts and ends on the same token, so both are renumbered.
     int tcounter = 0;
     for (int i = 0; i < (int)tgs.size(); ++i) {
         if (tgs.at(i).tupletstart) {
             tgs.at(i).tupletstart = ++tcounter;
         }
-        else if (tgs.at(i).tupletend) {
+        if (tgs.at(i).tupletend) {
             tgs.at(i).tupletend = tcounter;
         }
     }
@@ -23836,8 +23793,60 @@ void HumdrumInput::prepareBeamAndTupletGroups(
     mergeTupletsCuttingBeam(tgs);
     resolveTupletBeamTie(tgs);
     assignTupletScalings(tgs);
+    checkTupletTimings(tgs);
 
     storeTupletAndBeamInfoInTokens(tgs);
+}
+
+//////////////////////////////
+//
+// HumdrumInput::checkTupletTimings -- Report every durational token whose
+//    duration cannot be written under the tuplet it was grouped into.  A
+//    tuplet element scales its notes by the ratio of the note that opens it
+//    (see insertTuplet), and convertRhythm() sets @dur only when the scaled
+//    duration is a power of two from 1/2048 to 8 whole notes; a token that
+//    fails is drawn with no duration and every onset after it shifts, so
+//    the failure is reported here, at the grouping, rather than left to the
+//    rendering.
+//
+
+void HumdrumInput::checkTupletTimings(const std::vector<humaux::HumdrumBeamAndTuplet> &tgs)
+{
+    hum::HumNum ratio = 1;
+    int num = 1;
+    int numbase = 1;
+    for (int i = 0; i < (int)tgs.size(); ++i) {
+        const humaux::HumdrumBeamAndTuplet &tg = tgs.at(i);
+        if (tg.tupletstart) {
+            num = tg.num;
+            numbase = tg.numbase;
+            ratio = num;
+            ratio /= numbase;
+        }
+        if (tg.durationnodots > 0) {
+            // durationnodots is in quarter notes; @dur is a power of two in whole notes.
+            hum::HumNum dur = tg.durationnodots / 4 * ratio;
+            bool drawable = dur.isPowerOfTwo() && (dur >= hum::HumNum(1, 2048)) && (dur <= 8);
+            if (!drawable) {
+                std::stringstream message;
+                message << "In HumdrumInput::checkTupletTimings: " << *tg.token << " (line "
+                        << tg.token->getLineNumber() << ", field " << tg.token->getFieldNumber() << ") ";
+                if (ratio == 1) {
+                    message << "outside any tuplet";
+                }
+                else {
+                    message << "in tuplet " << num << ":" << numbase;
+                }
+                message << " has the duration " << dur << " in whole notes, which is not a power of two";
+                LogWarning("%s", message.str().c_str());
+            }
+        }
+        if (tg.tupletend) {
+            ratio = 1;
+            num = 1;
+            numbase = 1;
+        }
+    }
 }
 
 //////////////////////////////
