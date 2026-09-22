@@ -741,7 +741,6 @@ protected:
     void initializeIgnoreVector(hum::HumdrumFile &infile);
     bool hasIndent(hum::HTp tok);
     void prepareNonStandardKeySignature(KeySig *vrvkeysig, const std::string &ks, hum::HTp keytok);
-    void fixLargeTuplets(std::vector<humaux::HumdrumBeamAndTuplet> &tg);
     void addSlurLineStyle(Slur *element, hum::HTp token, int slurindex);
     void addTieLineStyle(Tie *element, hum::HTp token, int noteindex);
     void setAccid(Accid *accid, const std::string &loaccid);
@@ -783,6 +782,7 @@ protected:
         std::vector<hum::HumNum> &durations, std::vector<bool> &durforce);
     bool hasLayoutParameter(hum::HTp token, const std::string &category, const std::string &param);
     void assignTupletScalings(std::vector<humaux::HumdrumBeamAndTuplet> &tg);
+    void checkTupletTimings(const std::vector<humaux::HumdrumBeamAndTuplet> &tgs);
     std::string getLayoutParameter(hum::HTp token, const std::string &category, const std::string &catkey,
         const std::string &trueString, const std::string &falseString = "");
     void analyzeClefNulls(hum::HumdrumFile &infile);
