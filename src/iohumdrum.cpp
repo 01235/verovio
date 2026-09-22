@@ -942,6 +942,7 @@ bool HumdrumInput::convertHumdrum()
         reverse(staffstarts.begin(), staffstarts.end());
     }
     calculateReverseKernIndex();
+    prepareStaffTimeSigs();
 
     m_staffstates.resize(staffstarts.size());
 
@@ -5433,6 +5434,24 @@ void HumdrumInput::calculateReverseKernIndex()
     std::fill(rkern.begin(), rkern.end(), -1);
     for (int i = 0; i < (int)staffstarts.size(); ++i) {
         rkern[staffstarts[i]->getTrack()] = i;
+    }
+}
+
+//////////////////////////////
+//
+// HumdrumInput::prepareStaffTimeSigs -- Record the time signature in force
+//    on each staff at every line, so that a timestamp can be expressed in
+//    the beat of the measure it falls in when that measure is later than the
+//    one being converted (the end of a hairpin or of a trill extension).
+//
+
+void HumdrumInput::prepareStaffTimeSigs()
+{
+    hum::HumdrumFile &infile = m_infiles[0];
+    const std::vector<hum::HTp> &staffstarts = m_staffstarts;
+    m_stafftimesigs.resize(staffstarts.size());
+    for (int i = 0; i < (int)staffstarts.size(); ++i) {
+        infile.getTimeSigs(m_stafftimesigs[i], staffstarts[i]->getTrack());
     }
 }
 
@@ -19129,8 +19148,7 @@ void HumdrumInput::processDynamics(hum::HTp token, int staffindex)
                     tstamp2 = getMeasureTstamp(endtok, si);
                 }
                 if ((duration == 0) && (endline || (endtok->find("[[") != std::string::npos))) {
-                    std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
-                    hum::HumNum mfactor = ss[si].meter_bottom / 4;
+                    hum::HumNum mfactor = getMeasureFactor(si, endtok);
                     tstamp2 += endtok->getLine()->getDuration() * mfactor;
                 }
                 int measures = getMeasureDifference(dyntok, endtok);
@@ -19278,8 +19296,7 @@ void HumdrumInput::processDynamics(hum::HTp token, int staffindex)
                     tstamp2 = getMeasureTstamp(endtok, si);
                 }
                 if ((duration == 0) && (endline || (endtok->find("]]") != std::string::npos))) {
-                    std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
-                    hum::HumNum mfactor = ss[si].meter_bottom / 4;
+                    hum::HumNum mfactor = getMeasureFactor(si, endtok);
                     tstamp2 += endtok->getLine()->getDuration() * mfactor;
                 }
                 int measures = getMeasureDifference(dyntok, endtok);
@@ -20482,31 +20499,22 @@ hum::HumNum HumdrumInput::getMeasureTstamp(hum::HTp token, int staffindex, hum::
         // qbeat += fract * token->getDuration().getAbs();
     }
     // Below is temporary fix for issue https://github.com/rism-digital/verovio/issues/3515
-    hum::HumNum mfactor = ss.back().meter_bottom / 4;
-    // hum::HumNum mfactor = ss[staffindex].meter_bottom / 4;
+    hum::HumNum mfactor = getMeasureFactor((int)ss.size() - 1, token);
+    // hum::HumNum mfactor = getMeasureFactor(staffindex, token);
 
-    // if (ss[staffindex].meter_bottom == 0) {
-    //  mfactor = 1;
-    //  mfactor /= 8;
-    // }
     hum::HumNum mbeat = qbeat * mfactor + 1;
     return mbeat;
 }
 
 hum::HumNum HumdrumInput::getMeasureTstamp(hum::HTp token, hum::HumNum extraduration, int staffindex, hum::HumNum fract)
 {
-    std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
     hum::HumNum qbeat = token->getDurationFromBarline();
     qbeat += extraduration;
     if (fract > 0) {
         // what is this for? Causes problems with pedal markings.
         // qbeat += fract * token->getDuration().getAbs();
     }
-    hum::HumNum mfactor = ss[staffindex].meter_bottom / 4;
-    // if (ss[staffindex].meter_bottom == 0) {
-    //  mfactor = 1;
-    //  mfactor /= 8;
-    // }
+    hum::HumNum mfactor = getMeasureFactor(staffindex, token);
     hum::HumNum mbeat = qbeat * mfactor + 1;
     return mbeat;
 }
@@ -20525,6 +20533,33 @@ hum::HumNum HumdrumInput::getMeasureFactor(int staffindex)
 
 //////////////////////////////
 //
+// HumdrumInput::getMeasureFactor -- Get the metric unit of the measure a token
+//    falls in, which is the current measure's unless the token ends a
+//    hairpin or a trill in a later measure with a different time signature.
+//    Read from the time signatures in the file (prepareStaffTimeSigs), with
+//    the staff state's convention for breve meters (*M3/0 counts in whole
+//    notes) and its default of quarter notes before any time signature.
+//
+
+hum::HumNum HumdrumInput::getMeasureFactor(int staffindex, hum::HTp token)
+{
+    if ((staffindex < 0) || (staffindex >= (int)m_stafftimesigs.size())) {
+        return getMeasureFactor(staffindex);
+    }
+    const std::vector<std::pair<int, hum::HumNum>> &timesigs = m_stafftimesigs.at(staffindex);
+    int line = token->getLineIndex();
+    if ((line < 0) || (line >= (int)timesigs.size())) {
+        return getMeasureFactor(staffindex);
+    }
+    hum::HumNum bottom = timesigs.at(line).second;
+    if (bottom == 0) {
+        bottom = (timesigs.at(line).first == 0) ? 4 : 1;
+    }
+    return bottom / 4;
+}
+
+//////////////////////////////
+//
 // HumdrumInput::getMeasureTstampPlusDur --  Similar to getMeasureTstamp, but also include
 //     duration of token (to get endpoint of token in measure).
 //     default value: fract = 0.0;
@@ -20532,17 +20567,12 @@ hum::HumNum HumdrumInput::getMeasureFactor(int staffindex)
 
 hum::HumNum HumdrumInput::getMeasureTstampPlusDur(hum::HTp token, int staffindex, hum::HumNum fract)
 {
-    std::vector<humaux::StaffStateVariables> &ss = m_staffstates;
     hum::HumNum qbeat = token->getDurationFromBarline() + token->getDuration();
     if (fract > 0) {
         // what is this for? Causes problems with pedal markings.
         // qbeat += fract * token->getDuration().getAbs();
     }
-    hum::HumNum mfactor = ss[staffindex].meter_bottom / 4;
-    // if (ss[staffindex].meter_bottom == 0) {
-    //  mfactor = 1;
-    //  mfactor /= 8;
-    // }
+    hum::HumNum mfactor = getMeasureFactor(staffindex, token);
     hum::HumNum mbeat = qbeat * mfactor + 1;
     return mbeat;
 }

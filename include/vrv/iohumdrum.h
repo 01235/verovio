@@ -525,6 +525,7 @@ protected:
     void storeStaffLayerTokensForMeasure(int startline, int endline);
     void calculateReverseKernIndex();
     void prepareTimeSigDur(int &top, int &bot);
+    void prepareStaffTimeSigs();
     void printMeasureTokens();
     int characterCount(const std::string &text, char symbol);
     int characterCount(hum::HTp token, char symbol);
@@ -606,6 +607,7 @@ protected:
     hum::HumNum getMeasureTstampPlusDur(hum::HTp token, int staffindex, hum::HumNum fract = 0);
     hum::HumNum getMeasureEndTstamp(int staffindex);
     hum::HumNum getMeasureFactor(int staffindex);
+    hum::HumNum getMeasureFactor(int staffindex, hum::HTp token);
     hum::HTp getPreviousDataToken(hum::HTp token);
     hum::HTp getHairpinEnd(hum::HTp token, const std::string &endchar);
     hum::HTp getDecrescendoEnd(hum::HTp token);
@@ -1087,6 +1089,10 @@ private:
 
     // m_timesigdurs == Prevailing time signature duration of measure
     std::vector<hum::HumNum> m_timesigdurs;
+
+    // m_stafftimesigs == Prevailing time signature (count, unit) at each line,
+    // by staff index, for timestamps in measures not yet converted.
+    std::vector<std::vector<std::pair<int, hum::HumNum>>> m_stafftimesigs;
 
     // m_tupletscaling == tuplet-scaling factor for the current note.
     hum::HumNum m_tupletscaling = 1;
