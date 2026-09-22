@@ -693,18 +693,27 @@ Fraction LayerElement::GetAlignmentDuration(
             if (params.proport->HasNumbase()) numbase *= params.proport->GetCumulatedNumbase();
         }
 
+        // Every tuplet ancestor scales the duration: a note in a 3:5 nested in a 9:8 lasts
+        // 5/3 × 8/9 of its written value, not 5/3 alone.
+        int tupletNum = 1;
+        int tupletNumbase = 1;
+        bool inTuplet = false;
         const Tuplet *tuplet = vrv_cast<const Tuplet *>(this->GetFirstAncestor(TUPLET, MAX_TUPLET_DEPTH));
-        if (tuplet) {
+        while (tuplet) {
             ListOfConstObjects objects;
             ClassIdsComparison ids({ CHORD, NOTE, REST, SPACE });
             tuplet->FindAllDescendantsByComparison(&objects, &ids);
             if (objects.size() > 0) {
-                num = tuplet->GetNum();
-                numbase = tuplet->GetNumbase();
                 // Adjust VRV_UNSET and 0 - which is not valid in MEI anyway
-                num = std::max(1, num);
-                numbase = std::max(1, numbase);
+                tupletNum *= std::max(1, tuplet->GetNum());
+                tupletNumbase *= std::max(1, tuplet->GetNumbase());
+                inTuplet = true;
             }
+            tuplet = vrv_cast<const Tuplet *>(tuplet->GetFirstAncestor(TUPLET, MAX_TUPLET_DEPTH));
+        }
+        if (inTuplet) {
+            num = tupletNum;
+            numbase = tupletNumbase;
         }
         const DurationInterface *duration = this->GetDurationInterface();
         assert(duration);
