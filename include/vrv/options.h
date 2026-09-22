@@ -715,7 +715,9 @@ public:
     OptionArray m_fontAddCustom;
     OptionIntMap m_fontFallback;
     OptionBool m_fontLoadAll;
+    OptionString m_fontText;
     OptionBool m_fontTextLiberation;
+    OptionString m_fontTextPath;
     OptionDbl m_graceFactor;
     OptionBool m_graceRhythmAlign;
     OptionBool m_graceRightAlign;

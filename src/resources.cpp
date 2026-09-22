@@ -56,6 +56,7 @@ Resources::Resources()
     m_path = s_defaultPath;
     m_currentStyle = k_defaultStyle;
     m_useLiberation = false;
+    m_textFontName = "Times";
 }
 
 bool Resources::InitFonts()
@@ -72,24 +73,69 @@ bool Resources::InitFonts()
     m_currentFontName = m_defaultFontName;
     m_fallbackFontName = m_defaultFontName;
 
+    m_textFont.clear();
+    if (!this->SetTextFont("Times", "")) {
+        LogError("Text font could not be initialized.");
+        return false;
+    }
+
+    return true;
+}
+
+// The characters the layout reads from a text font table whatever the text: the line height from 'I' and 'q',
+// the x-height from 'x', the type size from 'p' and 'M', 'o' for a character the table lacks and '.' for a
+// space, '-' for a lyric dash, and '0' for a fret number. A table without one of them cannot be laid out from.
+static const std::u32string s_textFontReferenceChars = U"-.0IMopqx";
+
+static char32_t MissingReferenceChar(const Resources::GlyphTable &table)
+{
+    for (const char32_t code : s_textFontReferenceChars) {
+        if (!table.contains(code)) return code;
+    }
+    return 0;
+}
+
+bool Resources::SetTextFont(const std::string &fontName, const std::string &path)
+{
     struct TextFontInfo_type {
         const StyleAttributes m_style;
-        const std::string m_fileName;
+        const std::string m_suffix;
         bool m_isMandatory;
     };
 
     static const TextFontInfo_type textFontInfos[]
-        = { { k_defaultStyle, "Times", true }, { { FONTWEIGHT_bold, FONTSTYLE_normal }, "Times-bold", false },
-              { { FONTWEIGHT_bold, FONTSTYLE_italic }, "Times-bold-italic", false },
-              { { FONTWEIGHT_normal, FONTSTYLE_italic }, "Times-italic", false } };
+        = { { k_defaultStyle, "", true }, { { FONTWEIGHT_bold, FONTSTYLE_normal }, "-bold", false },
+              { { FONTWEIGHT_bold, FONTSTYLE_italic }, "-bold-italic", false },
+              { { FONTWEIGHT_normal, FONTSTYLE_italic }, "-italic", false } };
 
+    const std::string directory = path.empty() ? GetPath() + "/text" : path;
+    const GlyphTextMap previousTables = m_textFont;
+    const std::string previousName = m_textFontName;
+    m_textFont.clear();
+
+    std::string fontFamily;
     for (const auto &textFontInfo : textFontInfos) {
-        if (!InitTextFont(textFontInfo.m_fileName, textFontInfo.m_style) && textFontInfo.m_isMandatory) {
-            LogError("Text font could not be initialized.");
+        const std::string filename = directory + "/" + fontName + textFontInfo.m_suffix + ".xml";
+        std::string family;
+        if (!InitTextFont(filename, textFontInfo.m_style, family)) {
+            if (!textFontInfo.m_isMandatory) continue;
+            LogError("Text font '%s' could not be loaded from '%s'", fontName.c_str(), directory.c_str());
+            m_textFont = previousTables;
+            m_textFontName = previousName;
             return false;
         }
+        const char32_t missing = MissingReferenceChar(m_textFont.at(textFontInfo.m_style));
+        if (missing) {
+            LogError("Text font table '%s' has no entry for '%c', which the layout reads from every table",
+                filename.c_str(), (char)missing);
+            m_textFont = previousTables;
+            m_textFontName = previousName;
+            return false;
+        }
+        if (textFontInfo.m_isMandatory) fontFamily = family;
     }
 
+    m_textFontName = fontFamily.empty() ? fontName : fontFamily;
     m_currentStyle = k_defaultStyle;
 
     return true;
@@ -421,13 +467,12 @@ bool Resources::LoadFont(const std::string &fontName, ZipFileReader *zipFile)
     return true;
 }
 
-bool Resources::InitTextFont(const std::string &fontName, const StyleAttributes &style)
+bool Resources::InitTextFont(const std::string &filename, const StyleAttributes &style, std::string &fontFamily)
 {
     // For the text font, we load the bounding boxes only
     pugi::xml_document doc;
-    // For now, we have only Times bounding boxes for ASCII chars
+    // The tables shipped with the resources hold Times bounding boxes for ASCII chars
     // For any other char, we currently use 'o' bounding box
-    std::string filename = GetPath() + "/text/" + fontName + ".xml";
     pugi::xml_parse_result result = doc.load_file(filename.c_str());
     if (!result) {
         // File not found, default bounding boxes will be used
@@ -439,6 +484,7 @@ bool Resources::InitTextFont(const std::string &fontName, const StyleAttributes 
         LogWarning("No units-per-em attribute in bounding box file");
         return false;
     }
+    fontFamily = root.attribute("font-family") ? root.attribute("font-family").value() : "";
     const int unitsPerEm = root.attribute("units-per-em").as_int();
     pugi::xml_node current;
     if (!m_textFont.contains(style)) {
@@ -461,7 +507,7 @@ bool Resources::InitTextFont(const std::string &fontName, const StyleAttributes 
 
             if (current.attribute("h-a-x")) glyph.SetHorizAdvX(current.attribute("h-a-x").as_float());
             if (currentTable.contains(code)) {
-                LogDebug("Redefining %d with %s", code, fontName.c_str());
+                LogDebug("Redefining %d with %s", code, filename.c_str());
             }
             currentTable[code] = glyph;
         }
