@@ -32199,29 +32199,34 @@ std::vector<int> HumdrumInput::analyzeMultiRest(hum::HumdrumFile &infile)
         }
     }
 
-    // group sequences of whole-meaure rests
-    for (int i = (int)wholerest.size() - 2; i >= 0; i--) {
-        if (bardur[i] != bardur[i + 1]) {
-            continue;
+    // The grouping is the caller's choice: with humMultiRest off, every
+    // whole-measure rest stays a full-measure rest in a measure of its own,
+    // so the page draws the bars the input has.
+    if (m_doc->GetOptions()->m_humMultiRest.GetValue()) {
+        // group sequences of whole-meaure rests
+        for (int i = (int)wholerest.size() - 2; i >= 0; i--) {
+            if (bardur[i] != bardur[i + 1]) {
+                continue;
+            }
+            if (regex_search(*infile.token(barindex[i + 1], 0), regex("[^=0-9]"))) {
+                continue;
+            }
+            if (wholerest[i] && wholerest[i + 1]) {
+                wholerest[i] += wholerest[i + 1];
+                wholerest[i + 1] = -1;
+            }
         }
-        if (regex_search(*infile.token(barindex[i + 1], 0), regex("[^=0-9]"))) {
-            continue;
-        }
-        if (wholerest[i] && wholerest[i + 1]) {
-            wholerest[i] += wholerest[i + 1];
-            wholerest[i + 1] = -1;
-        }
-    }
 
-    // Expand backwards to include a whole-measure rest with a
-    // measure that has text.
-    for (int i = 0; i < (int)wholerest.size() - 1; ++i) {
-        if (bardur[i] != bardur[i + 1]) {
-            continue;
-        }
-        if ((textrest[i] == 1) && (wholerest[i + 1] >= 1)) {
-            wholerest[i] = wholerest[i + 1] + 1;
-            wholerest[i + 1] = -1;
+        // Expand backwards to include a whole-measure rest with a
+        // measure that has text.
+        for (int i = 0; i < (int)wholerest.size() - 1; ++i) {
+            if (bardur[i] != bardur[i + 1]) {
+                continue;
+            }
+            if ((textrest[i] == 1) && (wholerest[i + 1] >= 1)) {
+                wholerest[i] = wholerest[i + 1] + 1;
+                wholerest[i + 1] = -1;
+            }
         }
     }
 
