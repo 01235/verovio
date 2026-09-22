@@ -23332,17 +23332,17 @@ void HumdrumInput::prepareBeamAndTupletGroups(
     }
 
     // beamlevels == the number of beams each duration item's beam letters give
-    // it: the beams open across it (L opens one, J closes one) plus its own
-    // partial beams (k on the left, K on the right), on the fuller side.
-    // Grace notes carry beams of their own and are not duration items.
+    // it: the beams connected on its fuller side (L opens one, J closes one)
+    // plus its own partial beams (k on the left, K on the right), which lie
+    // above every connected one.  Grace notes carry beams of their own and are
+    // not duration items.
     std::vector<int> beamlevels(duritems.size(), 0);
     int openbeams = 0;
     for (int i = 0; i < (int)duritems.size(); ++i) {
         int before = openbeams;
         int after = openbeams - characterCount(duritems[i], 'J') + characterCount(duritems[i], 'L');
-        int left = before + characterCount(duritems[i], 'k');
-        int right = after + characterCount(duritems[i], 'K');
-        beamlevels[i] = std::max(left, right);
+        int partials = characterCount(duritems[i], 'k') + characterCount(duritems[i], 'K');
+        beamlevels[i] = std::max(before, after) + partials;
         openbeams = std::max(after, 0);
     }
 
