@@ -57,11 +57,18 @@ public:
     bool Ok() const { return (m_loadedFonts.size() > 1); }
 
     /**
-     * Return the name of the text font (Times or Liberation)
+     * Return the name of the text font (the loaded tables' family, Times by default, or Liberation)
      */
     void UseLiberationTextFont(bool useLiberation) { m_useLiberation = useLiberation; }
     bool UseLiberationTextFont() const { return m_useLiberation; }
-    std::string GetTextFont() const { return ((m_useLiberation) ? "Liberation" : "Times"); }
+    std::string GetTextFont() const { return ((m_useLiberation) ? "Liberation" : m_textFontName); }
+    /**
+     * Load the bounding-box tables of a text font: <path>/<fontName>.xml, whose font-family attribute names
+     * the font in the output, and the optional -bold, -italic, and -bold-italic tables beside it.
+     * The resource text directory is used when path is empty. Every table loaded must hold the characters
+     * the layout reads from it (see s_textFontReferenceChars). The tables in use are kept on failure.
+     */
+    bool SetTextFont(const std::string &fontName, const std::string &path);
 
     /**
      * Font initialization
@@ -169,13 +176,14 @@ private:
 
     bool LoadFont(const std::string &fontName, ZipFileReader *zipFile = NULL);
 
-    /** Init the text font (bounding boxes and ASCII only) */
-    bool InitTextFont(const std::string &fontName, const StyleAttributes &style);
+    /** Init the text font style from a bounding-box table file, returning its font-family attribute */
+    bool InitTextFont(const std::string &filename, const StyleAttributes &style, std::string &fontFamily);
 
     const GlyphTable &GetCurrentGlyphTable() const { return m_loadedFonts.at(m_currentFontName).GetGlyphTable(); };
     const GlyphTable &GetFallbackGlyphTable() const { return m_loadedFonts.at(m_fallbackFontName).GetGlyphTable(); };
 
     bool m_useLiberation;
+    std::string m_textFontName;
     std::string m_path;
     std::string m_defaultFontName;
     std::string m_fallbackFontName;

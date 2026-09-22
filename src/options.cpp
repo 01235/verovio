@@ -1319,9 +1319,20 @@ Options::Options()
     m_fontLoadAll.Init(false);
     this->Register(&m_fontLoadAll, "fontLoadAll", &m_generalLayout);
 
+    m_fontText.SetInfo("Font text",
+        "The text font, as the name of its bounding-box tables (<name>.xml with the optional -bold, -italic, and "
+        "-bold-italic ones); the table's font-family attribute names the font in the output");
+    m_fontText.Init("Times");
+    this->Register(&m_fontText, "fontText", &m_generalLayout);
+
     m_fontTextLiberation.SetInfo("Font text Liberation", "Use the Liberation text font");
     m_fontTextLiberation.Init(false);
     this->Register(&m_fontTextLiberation, "fontTextLiberation", &m_generalLayout);
+
+    m_fontTextPath.SetInfo("Font text path",
+        "The directory of the text font's bounding-box tables; the resource text directory when empty");
+    m_fontTextPath.Init("");
+    this->Register(&m_fontTextPath, "fontTextPath", &m_generalLayout);
 
     m_graceFactor.SetInfo("Grace factor", "The grace size ratio numerator");
     m_graceFactor.Init(0.75, 0.5, 1.0);

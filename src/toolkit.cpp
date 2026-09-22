@@ -138,6 +138,10 @@ bool Toolkit::SetResourcePath(const std::string &path)
     if (m_options->m_fontTextLiberation.IsSet()) {
         resources.UseLiberationTextFont(m_options->m_fontTextLiberation.GetValue());
     }
+    if (m_options->m_fontText.IsSet() || m_options->m_fontTextPath.IsSet()) {
+        success
+            = success && resources.SetTextFont(m_options->m_fontText.GetValue(), m_options->m_fontTextPath.GetValue());
+    }
     return success;
 }
 
@@ -1280,6 +1284,11 @@ bool Toolkit::SetOptions(const std::string &jsonOptions)
         Resources &resources = m_doc.GetResourcesForModification();
         resources.UseLiberationTextFont(m_options->m_fontTextLiberation.GetValue());
     }
+    bool success = true;
+    if (json.has<jsonxx::String>("fontText") || json.has<jsonxx::String>("fontTextPath")) {
+        Resources &resources = m_doc.GetResourcesForModification();
+        success = resources.SetTextFont(m_options->m_fontText.GetValue(), m_options->m_fontTextPath.GetValue());
+    }
 
     // If changing midi options, reset the MIDI doc
     if (json.has<jsonxx::Number>("midiTempoAdjustment") || json.has<jsonxx::Boolean>("midiNoCue")) {
@@ -1288,7 +1297,7 @@ bool Toolkit::SetOptions(const std::string &jsonOptions)
 
     if (m_editorToolkit) m_editorToolkit->OptionsChanged();
 
-    return true;
+    return success;
 }
 
 void Toolkit::ResetOptions()
