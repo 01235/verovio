@@ -136,6 +136,7 @@ void LayerElement::Reset()
     m_crossLayer = NULL;
 
     m_isInBeamspan = false;
+    m_partialBeamSide = PARTIALBEAM_NONE;
 }
 
 LayerElement::~LayerElement() {}
@@ -265,6 +266,12 @@ void LayerElement::SetIsInBeamSpan(bool isInBeamSpan)
 {
     if (!this->IsAnyOf(std::array{ CHORD, NOTE, REST })) return;
     m_isInBeamspan = isInBeamSpan;
+}
+
+void LayerElement::SetPartialBeamSide(PartialBeamSide partialBeamSide)
+{
+    if (!this->IsAnyOf(std::array{ CHORD, NOTE })) return;
+    m_partialBeamSide = partialBeamSide;
 }
 
 bool LayerElement::IsInBeam() const

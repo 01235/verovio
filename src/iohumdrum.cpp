@@ -22681,6 +22681,27 @@ std::string HumdrumInput::getStringParameter(hum::HTp token, const std::string &
 
 //////////////////////////////
 //
+// HumdrumInput::setPartialBeamSide -- Fix the side of a note's or chord's
+//    partial beams from the **kern beam letters: k for a partial beam to the
+//    left of the stem, K for one to the right.  Without them the beam decides
+//    from its neighbors; a token with both letters (which one stem's beam
+//    counts cannot express) is left to it as well.
+//
+
+void HumdrumInput::setPartialBeamSide(LayerElement *element, hum::HTp token)
+{
+    int left = characterCount(*token, 'k');
+    int right = characterCount(*token, 'K');
+    if (left && !right) {
+        element->SetPartialBeamSide(PARTIALBEAM_LEFT);
+    }
+    else if (right && !left) {
+        element->SetPartialBeamSide(PARTIALBEAM_RIGHT);
+    }
+}
+
+//////////////////////////////
+//
 // HumdrumInput::storeBreaksec -- Look for cases where sub-beams are broken.
 //
 
@@ -25570,6 +25591,7 @@ void HumdrumInput::convertChord(Chord *chord, hum::HTp token, int staffindex)
     if (breaksec) {
         chord->SetBreaksec(breaksec);
     }
+    setPartialBeamSide(chord, token);
 
     convertVerses(chord, token);
 }
@@ -26184,6 +26206,7 @@ void HumdrumInput::convertNote(Note *note, hum::HTp token, int staffadj, int sta
         if (breaksec) {
             note->SetBreaksec(breaksec);
         }
+        setPartialBeamSide(note, token);
     }
 
     processTerminalLong(token); // do this before assigning rhythmic value.

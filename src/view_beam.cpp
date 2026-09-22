@@ -329,9 +329,13 @@ void View::DrawBeamSegment(
                     }
                     // not needed for the next one or break
                     else {
+                        const char encodedSide = this->GetEncodedPartialSide(beamElementCoords->at(idx)->m_element);
                         // we are starting a beam or after a beam break - put it right
                         if (start) {
-                            if ((idx != 0) && (beamElementCoords->at(idx - 1)->m_element->Is(REST))) {
+                            if (encodedSide != PARTIAL_NONE) {
+                                beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = encodedSide;
+                            }
+                            else if ((idx != 0) && (beamElementCoords->at(idx - 1)->m_element->Is(REST))) {
                                 beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = PARTIAL_LEFT;
                             }
                             else {
@@ -340,8 +344,12 @@ void View::DrawBeamSegment(
                         }
                         // or the previous one had no partial
                         else if (beamElementCoords->at(noteIndexes.at(i - 1))->m_dur < (char)testDur) {
+                            // the encoding fixes the side
+                            if (encodedSide != PARTIAL_NONE) {
+                                beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = encodedSide;
+                            }
                             // if we are at the full bar level, put it left
-                            if (testDur == durRef2) {
+                            else if (testDur == durRef2) {
                                 beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = PARTIAL_LEFT;
                             }
                             // if the previous level underneath was a partial through, put it left
@@ -368,10 +376,12 @@ void View::DrawBeamSegment(
             beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = PARTIAL_NONE;
             // partial is needed
             if ((beamElementCoords->at(idx)->m_dur >= (char)testDur)) {
-                // and the previous one had no partial - put it left
+                // and the previous one had no partial - put it left, unless the encoding fixes the side
                 if ((noteCount == 1) || (beamElementCoords->at(noteIndexes.at(i - 1))->m_dur < (char)testDur)
                     || start) {
-                    beamElementCoords->at(idx)->m_partialFlags[testDur - durRef] = PARTIAL_LEFT;
+                    const char encodedSide = this->GetEncodedPartialSide(beamElementCoords->at(idx)->m_element);
+                    beamElementCoords->at(idx)->m_partialFlags[testDur - durRef]
+                        = (encodedSide != PARTIAL_NONE) ? encodedSide : PARTIAL_LEFT;
                 }
             }
 
@@ -424,6 +434,17 @@ void View::DrawBeamSegment(
 
         } // end of while
     } // end of drawing partial bars
+}
+
+char View::GetEncodedPartialSide(const LayerElement *element) const
+{
+    // The side the encoding fixes for the element's partial beams, or PARTIAL_NONE for the rules above.
+    if (!element) return PARTIAL_NONE;
+    switch (element->GetPartialBeamSide()) {
+        case PARTIALBEAM_LEFT: return PARTIAL_LEFT;
+        case PARTIALBEAM_RIGHT: return PARTIAL_RIGHT;
+        default: return PARTIAL_NONE;
+    }
 }
 
 void View::DrawBeamSpan(DeviceContext *dc, BeamSpan *beamSpan, System *system, Object *graphic)

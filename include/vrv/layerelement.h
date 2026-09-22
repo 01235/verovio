@@ -154,6 +154,15 @@ public:
     ///@}
 
     /**
+     * @name Setter and getter for the side of the partial beams the encoding fixes
+     * (Humdrum **kern k and K); PARTIALBEAM_NONE leaves it to the beam's rules.
+     */
+    ///@{
+    void SetPartialBeamSide(PartialBeamSide partialBeamSide);
+    PartialBeamSide GetPartialBeamSide() const { return m_partialBeamSide; }
+    ///@}
+
+    /**
      * @name Get and set the layerN drawing value
      */
     ///@{
@@ -443,6 +452,9 @@ private:
 
     // flag to indicate that layerElement belongs to the beamSpan
     bool m_isInBeamspan;
+
+    // the side of the partial beams when the encoding fixes it
+    PartialBeamSide m_partialBeamSide;
 };
 
 } // namespace vrv

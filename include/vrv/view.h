@@ -637,6 +637,7 @@ private:
     void DrawBeamSegment(
         DeviceContext *dc, BeamSegment *segment, BeamDrawingInterface *beamInterface, Layer *layer, Staff *staff);
     void DrawFTremSegment(DeviceContext *dc, Staff *staff, FTrem *fTrem);
+    char GetEncodedPartialSide(const LayerElement *element) const;
     ///@}
 
     /**
