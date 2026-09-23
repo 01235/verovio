@@ -1041,6 +1041,11 @@ Options::Options()
     m_humMultiRest.Init(true);
     this->Register(&m_humMultiRest, "humMultiRest", &m_general);
 
+    m_humSquareBrackets.SetInfo(
+        "Humdrum square brackets", "Draw the brackets of a system decoration square when importing from Humdrum");
+    m_humSquareBrackets.Init(false);
+    this->Register(&m_humSquareBrackets, "humSquareBrackets", &m_general);
+
     m_humType.SetInfo("Humdrum type", "Include type attributes when importing from Humdrum");
     m_humType.Init(false);
     this->Register(&m_humType, "humType", &m_general);

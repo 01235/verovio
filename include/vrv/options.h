@@ -646,6 +646,7 @@ public:
     OptionIntMap m_footer;
     OptionIntMap m_header;
     OptionBool m_humMultiRest;
+    OptionBool m_humSquareBrackets;
     OptionBool m_humType;
     OptionBool m_incip;
     OptionBool m_justifyVertically;
