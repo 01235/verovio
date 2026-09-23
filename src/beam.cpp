@@ -591,9 +591,14 @@ void BeamSegment::CalcBeamInit(
     m_verticalCenter = staff->GetDrawingY()
         - (doc->GetDrawingDoubleUnit(staff->m_drawingStaffSize) * 2); // center point of the staff
 
-    beamInterface->m_beamWidthBlack = doc->GetDrawingBeamWidth(staff->m_drawingStaffSize, beamInterface->m_cueSize);
-    beamInterface->m_beamWidthWhite
-        = doc->GetDrawingBeamWhiteWidth(staff->m_drawingStaffSize, beamInterface->m_cueSize);
+    // The option sets a beam's black in MEI units and the white takes the difference, so two beams stay the
+    // distance apart the placement quantises them by. The document's widths stay the defaults, which the brace
+    // and the fingered tremolo's offset draw by.
+    const int defaultBlack = doc->GetDrawingBeamWidth(staff->m_drawingStaffSize, beamInterface->m_cueSize);
+    const int beamPitch
+        = defaultBlack + doc->GetDrawingBeamWhiteWidth(staff->m_drawingStaffSize, beamInterface->m_cueSize);
+    beamInterface->m_beamWidthBlack = defaultBlack * doc->GetOptions()->m_beamThickness.GetValue();
+    beamInterface->m_beamWidthWhite = beamPitch - beamInterface->m_beamWidthBlack;
     if (beamInterface->m_shortestDur == DURATION_64) {
         beamInterface->m_beamWidthWhite *= 4;
         beamInterface->m_beamWidthWhite /= 3;

@@ -1258,6 +1258,12 @@ Options::Options()
     m_beamMixedStemMin.Init(3.5, 1.0, 8.0);
     this->Register(&m_beamMixedStemMin, "beamMixedStemMin", &m_generalLayout);
 
+    m_beamThickness.SetInfo("Beam thickness",
+        "The thickness of a beam in MEI units; the space between two beams takes the difference, so they stay "
+        "the same distance apart");
+    m_beamThickness.Init(1.0, 0.5, 1.3);
+    this->Register(&m_beamThickness, "beamThickness", &m_generalLayout);
+
     m_bracketThickness.SetInfo("Bracket thickness", "The thickness of the system bracket");
     m_bracketThickness.Init(1.0, 0.5, 2.0);
     this->Register(&m_bracketThickness, "bracketThickness", &m_generalLayout);
