@@ -1376,7 +1376,7 @@ Options::Options()
     this->Register(&m_justificationMaxVertical, "justificationMaxVertical", &m_generalLayout);
 
     m_ledgerLineThickness.SetInfo("Ledger line thickness", "The thickness of the ledger lines");
-    m_ledgerLineThickness.Init(0.25, 0.10, 0.50);
+    m_ledgerLineThickness.Init(0.25, 0.10, 0.70);
     this->Register(&m_ledgerLineThickness, "ledgerLineThickness", &m_generalLayout);
 
     m_ledgerLineExtension.SetInfo(
@@ -1526,7 +1526,7 @@ Options::Options()
     this->Register(&m_spacingSystem, "spacingSystem", &m_generalLayout);
 
     m_staffLineWidth.SetInfo("Staff line width", "The staff line width in MEI units");
-    m_staffLineWidth.Init(0.15, 0.10, 0.30);
+    m_staffLineWidth.Init(0.15, 0.10, 0.50);
     this->Register(&m_staffLineWidth, "staffLineWidth", &m_generalLayout);
 
     m_stemWidth.SetInfo("Stem width", "The stem width");
