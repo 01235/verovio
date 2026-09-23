@@ -702,6 +702,7 @@ public:
     OptionInt m_beamMaxSlope;
     OptionBool m_beamMixedPreserve;
     OptionDbl m_beamMixedStemMin;
+    OptionDbl m_beamThickness;
     OptionDbl m_bracketThickness;
     OptionBool m_breaksNoWidow;
     OptionDbl m_dashedBarLineDashLength;
