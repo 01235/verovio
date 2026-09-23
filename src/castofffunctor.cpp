@@ -115,21 +115,29 @@ FunctorCode CastOffSystemsFunctor::VisitMeasure(Measure *measure)
         }
         // Break it if necessary
         else if (drawingXRel + width + m_currentScoreDefWidth - m_shift > m_systemWidth) {
-            m_currentSystem = new System();
-            m_page->AddChild(m_currentSystem);
-            m_shift = drawingXRel;
-            // If last measure requires separate system - mark that system as leftover for the future CastOffPages call
-            if (isLeftoverMeasure) {
-                m_leftoverSystem = m_currentSystem;
+            Measure *firstPendingMeasure = this->GetFirstPendingMeasure();
+            // Pending measures, kept by their overflow from ending a system, go to the new system with this one only
+            // if it can hold them all; otherwise they are cast off as any measure is and this one follows them
+            if (firstPendingMeasure
+                && (drawingXRel + width + m_currentScoreDefWidth - firstPendingMeasure->GetCachedXRel()
+                    > m_systemWidth)) {
+                this->CastOffPendingMeasures();
+                firstPendingMeasure = NULL;
             }
-            for (Object *pendingElement : m_pendingElements) {
-                if (pendingElement->Is(MEASURE)) {
-                    Measure *firstPendingMeasure = vrv_cast<Measure *>(pendingElement);
-                    assert(firstPendingMeasure);
-                    m_shift = firstPendingMeasure->GetCachedXRel();
-                    m_leftoverSystem = NULL;
-                    // it has to be first measure
-                    break;
+            if (firstPendingMeasure) {
+                m_currentSystem = new System();
+                m_page->AddChild(m_currentSystem);
+                m_shift = firstPendingMeasure->GetCachedXRel();
+                m_leftoverSystem = NULL;
+            }
+            else if (drawingXRel + width + m_currentScoreDefWidth - m_shift > m_systemWidth) {
+                m_currentSystem = new System();
+                m_page->AddChild(m_currentSystem);
+                m_shift = drawingXRel;
+                // If last measure requires separate system - mark that system as leftover for the future CastOffPages
+                // call
+                if (isLeftoverMeasure) {
+                    m_leftoverSystem = m_currentSystem;
                 }
             }
         }
@@ -147,6 +155,41 @@ FunctorCode CastOffSystemsFunctor::VisitMeasure(Measure *measure)
     m_currentSystem->AddChild(measure);
 
     return FUNCTOR_SIBLINGS;
+}
+
+Measure *CastOffSystemsFunctor::GetFirstPendingMeasure() const
+{
+    for (Object *pendingElement : m_pendingElements) {
+        if (pendingElement->Is(MEASURE)) return vrv_cast<Measure *>(pendingElement);
+    }
+    return NULL;
+}
+
+void CastOffSystemsFunctor::CastOffPendingMeasures()
+{
+    ArrayOfObjects pendingElements;
+    pendingElements.swap(m_pendingElements);
+    for (Object *pendingElement : pendingElements) {
+        // Other pending elements wait for the next measure, to be placed before it on its system
+        if (!pendingElement->Is(MEASURE)) {
+            m_pendingElements.push_back(pendingElement);
+            continue;
+        }
+        Measure *measure = vrv_cast<Measure *>(pendingElement);
+        assert(measure);
+        const int width = measure->HasCachedHorizontalLayout() ? measure->GetCachedWidth() : measure->GetWidth();
+        if ((m_currentSystem->GetChildCount() > 0)
+            && (measure->GetCachedXRel() + width + m_currentScoreDefWidth - m_shift > m_systemWidth)) {
+            m_currentSystem = new System();
+            m_page->AddChild(m_currentSystem);
+            m_shift = measure->GetCachedXRel();
+        }
+        for (Object *element : m_pendingElements) {
+            m_currentSystem->AddChild(element);
+        }
+        m_pendingElements.clear();
+        m_currentSystem->AddChild(measure);
+    }
 }
 
 FunctorCode CastOffSystemsFunctor::VisitPageElement(PageElement *pageElement)
