@@ -66,7 +66,18 @@ public:
 protected:
     //
 private:
-    //
+    /**
+     * The first measure among the pending elements, if any.
+     */
+    Measure *GetFirstPendingMeasure() const;
+
+    /**
+     * Cast off the pending measures as any measure is, each on the current system if it holds it and on a new one
+     * otherwise; the other pending elements go before the measure that follows them, and those after the last
+     * measure stay pending.
+     */
+    void CastOffPendingMeasures();
+
 public:
     //
 private:
