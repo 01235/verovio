@@ -6466,6 +6466,11 @@ bool HumdrumInput::processStaffDecoration(const std::string &decoration)
 
 void HumdrumInput::setGroupSymbol(StaffGrp *sg, staffGroupingSym_SYMBOL symbol)
 {
+    // The caller may ask for the brackets drawn square.
+    if ((symbol == staffGroupingSym_SYMBOL_bracket) && m_doc->GetOptions()->m_humSquareBrackets.GetValue()) {
+        symbol = staffGroupingSym_SYMBOL_bracketsq;
+    }
+
     // Do not set the symbol on the StaffGrp, since it will be taken from
     // the GrpSym child element and inserted into StaffGrp when writing MEI.
     // sg->SetSymbol(symbol);
